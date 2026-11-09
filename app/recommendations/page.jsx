@@ -1,10 +1,19 @@
 "use client";
 
-import React, { useState } from "react";
+import { useEffect, useState } from "react";
 
-export default function RecommendationPage() {
-  // Pilihan opsi statis yang disesuaikan dengan standar ID di engine.py
-  const interestOptions = [
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+
+// Fallback opsi statis dipakai jika backend belum aktif.
+const FALLBACK_OPTIONS = {
+  interests: [
     { label: "Teknologi dan AI", value: "technology" },
     { label: "Data dan analisis", value: "data" },
     { label: "Komunitas dan kegiatan sosial", value: "community" },
@@ -14,10 +23,9 @@ export default function RecommendationPage() {
     { label: "Komunikasi dan kepemimpinan", value: "communication" },
     { label: "Desain dan kreativitas", value: "design" },
     { label: "Karier dan pengembangan diri", value: "career" },
-    { label: "Menulis dan membaca", value: "writing" }
-  ];
-
-  const skillOptions = [
+    { label: "Menulis dan membaca", value: "writing" },
+  ],
+  skills: [
     { label: "Literasi digital", value: "digital_literacy" },
     { label: "Python dasar", value: "python_basic" },
     { label: "Analisis data", value: "data_analysis" },
@@ -32,18 +40,72 @@ export default function RecommendationPage() {
     { label: "Membaca", value: "reading" },
     { label: "Berpikir kritis", value: "critical_thinking" },
     { label: "Pemecahan masalah", value: "problem_solving" },
-    { label: "Saya masih pemula / belum yakin", value: "beginner" }
-  ];
-
-  const habitOptions = [
+    { label: "Saya masih pemula / belum yakin", value: "beginner" },
+  ],
+  habits: [
     { label: "Belajar mandiri", value: "self_learning" },
     { label: "Membaca", value: "reading" },
     { label: "Konsisten menjalankan rutinitas", value: "consistency" },
     { label: "Bekerja dengan orang lain", value: "teamwork" },
     { label: "Menjadi relawan", value: "volunteering" },
     { label: "Aktivitas luar ruangan", value: "outdoor_activity" },
-    { label: "Mencoba dan membuat proyek", value: "problem_solving" }
-  ];
+    { label: "Mencoba dan membuat proyek", value: "problem_solving" },
+  ],
+  time_options: [15, 30, 45, 60, 90],
+};
+
+const DIFFICULTY_OPTIONS = [
+  { label: "Semua Tingkat", value: "any" },
+  { label: "Pemula (Beginner)", value: "beginner" },
+  { label: "Menengah (Intermediate)", value: "intermediate" },
+];
+
+const SCORE_BAR_COLOR = (score) => {
+  if (score >= 70) return "bg-green-500";
+  if (score >= 40) return "bg-yellow-400";
+  return "bg-red-400";
+};
+
+function CheckboxGroup({ title, options, selected, onToggle }) {
+  return (
+    <div className="space-y-2">
+      <p className="text-sm font-semibold">{title}</p>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        {options.map((opt) => (
+          <label
+            key={opt.value}
+            className="flex cursor-pointer items-center gap-2 rounded-lg border border-white/10 bg-foreground/[0.02] px-3 py-2 text-sm transition-colors hover:bg-foreground/[0.06] has-[:checked]:border-primary/40 has-[:checked]:bg-primary/5"
+          >
+            <input
+              type="checkbox"
+              className="accent-primary"
+              checked={selected.includes(opt.value)}
+              onChange={() => onToggle(opt.value)}
+            />
+            {opt.label}
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export default function RecommendationPage() {
+  // Opsi form — di-fetch dari backend, fallback ke data statis jika gagal
+  const [options, setOptions] = useState(FALLBACK_OPTIONS);
+
+  useEffect(() => {
+    fetch("/api/recommendations")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.interests && data?.skills && data?.habits) {
+          setOptions(data);
+        }
+      })
+      .catch(() => {
+        // Backend belum aktif — gunakan FALLBACK_OPTIONS
+      });
+  }, []);
 
   // State Form
   const [selectedInterests, setSelectedInterests] = useState([]);
@@ -59,11 +121,11 @@ export default function RecommendationPage() {
 
   // Toggle Pilihan Array Checkbox
   const handleToggle = (value, list, setList) => {
-    if (list.includes(value)) {
-      setList(list.filter((item) => item !== value));
-    } else {
-      setList([...list, value]);
-    }
+    setList(
+      list.includes(value)
+        ? list.filter((item) => item !== value)
+        : [...list, value]
+    );
   };
 
   // Submit Data ke Proxy Route Next.js
@@ -79,7 +141,7 @@ export default function RecommendationPage() {
       habits: selectedHabits,
       available_minutes: parseInt(timeAvailable, 10),
       preferred_difficulty: difficulty,
-      top_n: 5
+      top_n: 5,
     };
 
     try {
@@ -104,144 +166,180 @@ export default function RecommendationPage() {
   };
 
   return (
-    <div style={{ maxWidth: "800px", margin: "0 auto", padding: "40px 20px", fontFamily: "sans-serif" }}>
-      <h1 style={{ fontSize: "28px", fontWeight: "bold", marginBottom: "8px" }}>Sistem Rekomendasi Aktivitas</h1>
-      <p style={{ color: "#666", marginBottom: "32px" }}>Dapatkan rekomendasi aktivitas belajar terbaik berdasarkan profil personalmu.</p>
+    <section className="relative">
+      <div className="bg-grid bg-radial-fade absolute inset-0 -z-10" />
 
-      <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-        
-        {/* Pilihan Minat */}
-        <div>
-          <h3 style={{ fontSize: "16px", fontWeight: "bold", marginBottom: "8px" }}>1. Apa Minat Kamu? (Pilih sesuai kesukaan)</h3>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
-            {interestOptions.map((opt) => (
-              <label key={opt.value} style={{ display: "flex", gap: "8px", alignItems: "center", cursor: "pointer" }}>
-                <input
-                  type="checkbox"
-                  checked={selectedInterests.includes(opt.value)}
-                  onChange={() => handleToggle(opt.value, selectedInterests, setSelectedInterests)}
-                />
-                {opt.label}
-              </label>
-            ))}
-          </div>
+      <div className="mx-auto max-w-3xl px-6 py-20">
+        {/* Header */}
+        <div className="max-w-2xl">
+          <p className="text-sm font-semibold text-primary">Rekomendasi</p>
+          <h1 className="mt-2 text-4xl font-bold tracking-tight md:text-5xl">
+            Sistem Rekomendasi Aktivitas
+          </h1>
+          <p className="mt-4 text-muted-foreground">
+            Dapatkan rekomendasi aktivitas belajar terbaik berdasarkan profil personalmu.
+          </p>
         </div>
 
-        {/* Pilihan Skill */}
-        <div>
-          <h3 style={{ fontSize: "16px", fontWeight: "bold", marginBottom: "8px" }}>2. Skill yang Kamu Miliki / Ingin Kembangkan:</h3>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
-            {skillOptions.map((opt) => (
-              <label key={opt.value} style={{ display: "flex", gap: "8px", alignItems: "center", cursor: "pointer" }}>
-                <input
-                  type="checkbox"
-                  checked={selectedSkills.includes(opt.value)}
-                  onChange={() => handleToggle(opt.value, selectedSkills, setSelectedSkills)}
-                />
-                {opt.label}
-              </label>
-            ))}
-          </div>
-        </div>
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="mt-10 space-y-8">
+          <CheckboxGroup
+            title="1. Apa Minat Kamu? (Pilih sesuai kesukaan)"
+            options={options.interests}
+            selected={selectedInterests}
+            onToggle={(v) => handleToggle(v, selectedInterests, setSelectedInterests)}
+          />
 
-        {/* Pilihan Kebiasaan */}
-        <div>
-          <h3 style={{ fontSize: "16px", fontWeight: "bold", marginBottom: "8px" }}>3. Pola Kebiasaan / Gaya Aktivitas Kamu:</h3>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
-            {habitOptions.map((opt) => (
-              <label key={opt.value} style={{ display: "flex", gap: "8px", alignItems: "center", cursor: "pointer" }}>
-                <input
-                  type="checkbox"
-                  checked={selectedHabits.includes(opt.value)}
-                  onChange={() => handleToggle(opt.value, selectedHabits, setSelectedHabits)}
-                />
-                {opt.label}
-              </label>
-            ))}
-          </div>
-        </div>
+          <CheckboxGroup
+            title="2. Skill yang Kamu Miliki / Ingin Kembangkan"
+            options={options.skills}
+            selected={selectedSkills}
+            onToggle={(v) => handleToggle(v, selectedSkills, setSelectedSkills)}
+          />
 
-        {/* Slot Waktu */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-          <h3 style={{ fontSize: "16px", fontWeight: "bold", marginBottom: "2px" }}>4. Waktu yang Tersedia Per Hari:</h3>
-          <select 
-            value={timeAvailable} 
-            onChange={(e) => setTimeAvailable(e.target.value)}
-            style={{ padding: "8px", borderRadius: "4px", border: "1px solid #ccc", maxWidth: "300px" }}
-          >
-            <option value={15}>15 Menit</option>
-            <option value={30}>30 Menit</option>
-            <option value={45}>45 Menit</option>
-            <option value={60}>60 Menit</option>
-            <option value={90}>90 Menit atau lebih</option>
-          </select>
-        </div>
+          <CheckboxGroup
+            title="3. Pola Kebiasaan / Gaya Aktivitas Kamu"
+            options={options.habits}
+            selected={selectedHabits}
+            onToggle={(v) => handleToggle(v, selectedHabits, setSelectedHabits)}
+          />
 
-        {/* Tingkat Kesulitan */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-          <h3 style={{ fontSize: "16px", fontWeight: "bold", marginBottom: "2px" }}>5. Tingkat Kesulitan Aktivitas:</h3>
-          <select 
-            value={difficulty} 
-            onChange={(e) => setDifficulty(e.target.value)}
-            style={{ padding: "8px", borderRadius: "4px", border: "1px solid #ccc", maxWidth: "300px" }}
-          >
-            <option value="any">Semua Tingkat</option>
-            <option value="beginner">Pemula (Beginner)</option>
-            <option value="intermediate">Menengah (Intermediate)</option>
-          </select>
-        </div>
-
-        {/* Tombol Submit */}
-        <button
-          type="submit"
-          disabled={loading}
-          style={{
-            padding: "12px",
-            backgroundColor: loading ? "#999" : "#0070f3",
-            color: "white",
-            border: "none",
-            borderRadius: "4px",
-            fontWeight: "bold",
-            cursor: loading ? "not-allowed" : "pointer",
-            maxWidth: "200px",
-            marginTop: "8px"
-          }}
-        >
-          {loading ? "Memproses..." : "Cari Rekomendasi"}
-        </button>
-      </form>
-
-      {/* Render Error */}
-      {error && (
-        <div style={{ marginTop: "24px", padding: "12px", backgroundColor: "#ffebee", color: "#c62828", borderRadius: "4px" }}>
-          <strong>Error:</strong> {error}
-        </div>
-      )}
-
-      {/* Render Hasil Rekomendasi */}
-      {results && (
-        <div style={{ marginTop: "40px" }}>
-          <h2 style={{ fontSize: "22px", fontWeight: "bold", marginBottom: "16px", borderBottom: "2px solid #eee", paddingBottom: "8px" }}>
-            Hasil Analisis Kesesuaian Aktivitas
-          </h2>
-          {results.length === 0 ? (
-            <p style={{ color: "#666" }}>Tidak ditemukan aktivitas yang cocok dengan kriteria filter tingkat kesulitan.</p>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-              {results.map((item) => (
-                <div key={item.id} style={{ padding: "20px", border: "1px solid #eaeaea", borderRadius: "8px", backgroundColor: "#fafafa" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "8px" }}>
-                    <h4 style={{ margin: 0, fontSize: "18px", fontWeight: "bold", color: "#333" }}>
-                      {item.rank}. {item.title}
-                    </h4>
-                    <span style={{ padding: "4px 8px", backgroundColor: "#e1f5fe", color: "#0288d1", borderRadius: "4px", fontSize: "14px", fontWeight: "bold" }}>{item.score}%</span>
-                  </div>
-                </div>
+          {/* Waktu */}
+          <div className="space-y-2">
+            <p className="text-sm font-semibold">4. Waktu yang Tersedia Per Hari</p>
+            <select
+              value={timeAvailable}
+              onChange={(e) => setTimeAvailable(e.target.value)}
+              className="rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+            >
+              {options.time_options.map((t) => (
+                <option key={t} value={t}>
+                  {t} Menit{t === 90 ? " atau lebih" : ""}
+                </option>
               ))}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
+            </select>
+          </div>
+
+          {/* Tingkat Kesulitan */}
+          <div className="space-y-2">
+            <p className="text-sm font-semibold">5. Tingkat Kesulitan Aktivitas</p>
+            <select
+              value={difficulty}
+              onChange={(e) => setDifficulty(e.target.value)}
+              className="rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+            >
+              {DIFFICULTY_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <Button type="submit" disabled={loading} className="rounded-full px-6">
+            {loading ? "Memproses..." : "Cari Rekomendasi"}
+          </Button>
+        </form>
+
+        {/* Error */}
+        {error && (
+          <div className="mt-8 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+            <strong>Error:</strong> {error}
+          </div>
+        )}
+
+        {/* Hasil Rekomendasi */}
+        {results && (
+          <div className="mt-12">
+            <h2 className="mb-6 border-b border-white/10 pb-3 text-xl font-bold tracking-tight">
+              Hasil Analisis Kesesuaian Aktivitas
+            </h2>
+
+            {results.length === 0 ? (
+              <p className="text-muted-foreground">
+                Tidak ditemukan aktivitas yang cocok dengan kriteria filter tingkat kesulitan.
+              </p>
+            ) : (
+              <div className="flex flex-col gap-4">
+                {results.map((item) => (
+                  <Card
+                    key={item.id}
+                    className="border border-white/10 bg-foreground/[0.03]"
+                  >
+                    <CardHeader>
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <p className="text-xs font-semibold text-muted-foreground">
+                            #{item.rank} &middot; {item.duration_minutes} menit &middot;{" "}
+                            <span className="capitalize">{item.difficulty}</span>
+                          </p>
+                          <CardTitle className="mt-1">{item.title}</CardTitle>
+                          <CardDescription className="mt-1">
+                            {item.description}
+                          </CardDescription>
+                        </div>
+                        {/* Skor */}
+                        <div className="flex shrink-0 flex-col items-center gap-1">
+                          <span className="text-2xl font-bold tabular-nums">
+                            {item.score}
+                          </span>
+                          <span className="text-xs text-muted-foreground">/ 100</span>
+                        </div>
+                      </div>
+
+                      {/* Score bar */}
+                      <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-foreground/10">
+                        <div
+                          className={`h-full rounded-full transition-all ${SCORE_BAR_COLOR(item.score)}`}
+                          style={{ width: `${item.score}%` }}
+                        />
+                      </div>
+                    </CardHeader>
+
+                    <CardContent className="space-y-3">
+                      {/* Alasan */}
+                      <p className="text-sm text-muted-foreground italic">
+                        {item.reason}
+                      </p>
+
+                      {/* Rincian skor komponen */}
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                        {Object.entries(item.components).map(([key, val]) => (
+                          <div
+                            key={key}
+                            className="rounded-lg border border-white/10 bg-foreground/[0.03] px-3 py-2 text-center"
+                          >
+                            <p className="text-xs text-muted-foreground capitalize">{key}</p>
+                            <p className="text-sm font-semibold">{val}</p>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Tags */}
+                      {item.tags?.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {item.tags.map((tag) => (
+                            <span
+                              key={tag}
+                              className="rounded-full border border-white/10 bg-foreground/5 px-2.5 py-0.5 text-xs text-muted-foreground"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+
+            <p className="mt-6 text-xs text-muted-foreground">
+              Catatan: skor menunjukkan kesesuaian (0–100), bukan probabilitas keberhasilan.
+            </p>
+          </div>
+        )}
+      </div>
+    </section>
   );
 }
